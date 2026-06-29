@@ -200,6 +200,24 @@ header{
 .p-bar-wrap:hover .p-fill{background:var(--accent)}
 .p-time{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
 
+.p-vol{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.vol-slider{
+  -webkit-appearance:none;appearance:none;
+  width:60px;height:2px;border-radius:99px;
+  outline:none;cursor:pointer;
+  background:linear-gradient(to right,rgba(255,255,255,0.4) 100%,rgba(255,255,255,0.1) 100%);
+}
+.vol-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;
+  border-radius:50%;background:var(--text);cursor:pointer;
+  transition:transform 0.1s;
+}
+.vol-slider:hover::-webkit-slider-thumb{transform:scale(1.3)}
+.vol-slider::-moz-range-thumb{
+  width:10px;height:10px;border:none;border-radius:50%;
+  background:var(--text);cursor:pointer;
+}
+
 @media(max-width:600px){.p-right{display:none}}
 
 audio{display:none}
@@ -270,6 +288,20 @@ audio{display:none}
       <div class="p-fill" id="p-fill"></div>
     </div>
     <span class="p-time" id="p-dur">—</span>
+    <div class="p-vol">
+      <button class="p-btn" onclick="toggleMute()" aria-label="볼륨">
+        <svg id="vol-on" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <path d="M2 5H0.5v4H2l4 2.8V2.2L2 5z"/>
+          <path d="M8.5 4.8c.7.6 1.1 1.4 1.1 2.2s-.4 1.6-1.1 2.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M10.5 2.8c1.2.9 1.9 2.4 1.9 4.2s-.7 3.3-1.9 4.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <svg id="vol-off" width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="display:none">
+          <path d="M2 5H0.5v4H2l4 2.8V2.2L2 5z"/>
+          <path d="M9 5l3.5 4M12.5 5L9 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <input type="range" class="vol-slider" id="vol-slider" min="0" max="1" step="0.01" value="1" oninput="setVol(this.value)"/>
+    </div>
   </div>
 </div>
 
@@ -374,6 +406,52 @@ function seekBar(e) {
 }
 
 function fmt(s) { return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+
+// volume
+let lastVol = 1;
+function setVol(v) {
+  v = parseFloat(v);
+  audio.volume = v;
+  audio.muted = v === 0;
+  if (v > 0) lastVol = v;
+  updateVolIcon(v);
+  updateSliderFill(v);
+}
+function toggleMute() {
+  if (audio.muted || audio.volume === 0) {
+    audio.muted = false;
+    audio.volume = lastVol;
+    document.getElementById('vol-slider').value = lastVol;
+    updateVolIcon(lastVol);
+    updateSliderFill(lastVol);
+  } else {
+    lastVol = audio.volume;
+    audio.muted = true;
+    document.getElementById('vol-slider').value = 0;
+    updateVolIcon(0);
+    updateSliderFill(0);
+  }
+}
+function updateVolIcon(v) {
+  document.getElementById('vol-on').style.display = v > 0 ? '' : 'none';
+  document.getElementById('vol-off').style.display = v > 0 ? 'none' : '';
+}
+function updateSliderFill(v) {
+  const pct = (v * 100).toFixed(1);
+  document.getElementById('vol-slider').style.background =
+    `linear-gradient(to right,rgba(255,255,255,0.4) ${pct}%,rgba(255,255,255,0.1) ${pct}%)`;
+}
+
+// preload all track durations
+allTracks.forEach((track, idx) => {
+  const a = new Audio();
+  a.preload = 'metadata';
+  a.src = track.src;
+  a.addEventListener('loadedmetadata', () => {
+    const el = document.getElementById(`dur${idx}`);
+    if (el) el.textContent = fmt(a.duration);
+  });
+});
 
 audio.addEventListener('loadedmetadata', () => {
   const dur = fmt(audio.duration);
